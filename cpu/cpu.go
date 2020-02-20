@@ -11,7 +11,7 @@ var sp uint8
 // Flags
 var f uint8
 
-// zero flag big in f - set if the result of the operation is zero
+// zero flag mask - set if the result of the operation is zero
 var zfMask uint8 = 128
 
 // operation flag mask - set if the operation was subtraction
@@ -43,12 +43,3 @@ const (
 	Serial    = 0x0058
 	Joypad    = 0x0060
 )
-
-// Fetch retrieves the next instruction to execute
-func Fetch() {}
-
-// Decode determines what is needed to execute the fetched instruction
-func Decode() {}
-
-// Execute executes the instruction that has been fetched and decoded
-func Execute() {}
