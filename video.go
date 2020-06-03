@@ -1,6 +1,4 @@
-package gpu
-
-import ()
+package goboy
 
 // Screen dimensions
 const (
@@ -17,8 +15,9 @@ const (
 	White     = 0xFFFFFFFF
 )
 
-// VRAM is an 8x8 set of tiles
+// VRAM is an 8x8 set of tiles, memory mapped?
 var VRAM [8][8]uint8
 
+// memory mapped?
 var scrollX uint8
 var scrollY uint8
