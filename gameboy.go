@@ -28,3 +28,45 @@ const (
 	MaskSubtractionFlag    uint8 = 0b0000_0010 // operation flag mask - set if the operation was subtraction
 	MaskCarryFlag          uint8 = 0b0000_0001 // carry flag mask - set if there was an overflow in the result
 )
+
+func mergeBytes(msb uint8, lsb uint8) uint16 {
+	return (uint16(msb) << 8) | uint16(lsb)
+}
+
+func splitBytes(value uint16) (msb uint8, lsb uint8) {
+	msb = uint8((value & 0xFF00) >> 8)
+	lsb = uint8(value & 0x00FF)
+	return msb, lsb
+}
+
+func (gb *GameBoy) setAF(x uint16) {
+	gb.a, gb.f = splitBytes(x)
+}
+
+func (gb *GameBoy) readAF() (af uint16) {
+	return mergeBytes(gb.a, gb.f)
+}
+
+func (gb *GameBoy) setBC(x uint16) {
+	gb.b, gb.c = splitBytes(x)
+}
+
+func (gb *GameBoy) readBC() (bc uint16) {
+	return mergeBytes(gb.b, gb.c)
+}
+
+func (gb *GameBoy) setDE(x uint16) {
+	gb.d, gb.e = splitBytes(x)
+}
+
+func (gb *GameBoy) readDE() (bc uint16) {
+	return mergeBytes(gb.d, gb.e)
+}
+
+func (gb *GameBoy) setHL(x uint16) {
+	gb.h, gb.l = splitBytes(x)
+}
+
+func (gb *GameBoy) readHL() (bc uint16) {
+	return mergeBytes(gb.h, gb.l)
+}

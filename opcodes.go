@@ -53,7 +53,7 @@ type OpBytes struct {
 	Code            OpCode
 	HasDisplacement bool
 	ImmediateSize   byte // 0, 1, 2
-	Operation       func(gameboy *GameBoy, displacement byte, immediate uint16)
+	Operation       func(gameboy *GameBoy, prefix byte, opcode byte, displacement byte, immediate uint16)
 }
 
 func (code OpCode) Split() (x byte, y byte, z byte) {
@@ -88,7 +88,7 @@ var unprefixed = map[byte]OpBytes{
 	0b00_000_001: {LD, false, 2, nil},
 	0b00_010_001: {LD, false, 2, nil},
 	0b00_100_001: {LD, false, 2, nil},
-	0b00_110_001: {LD, false, 2, ldsp},
+	0b00_110_001: {LD, false, 2, ld},
 
 	0b00_001_001: {ADD, false, 0, nil},
 	0b00_011_001: {ADD, false, 0, nil},
@@ -265,7 +265,7 @@ var unprefixed = map[byte]OpBytes{
 	0b10_101_100: {ALU, false, 0, nil},
 	0b10_101_101: {ALU, false, 0, nil},
 	0b10_101_110: {ALU, false, 0, nil},
-	0b10_101_111: {ALU, false, 0, xora},
+	0b10_101_111: {ALU, false, 0, xor},
 	0b10_110_000: {ALU, false, 0, nil},
 	0b10_110_001: {ALU, false, 0, nil},
 	0b10_110_010: {ALU, false, 0, nil},

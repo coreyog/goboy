@@ -1,18 +1,36 @@
 package goboy
 
 import (
+	"fmt"
 	"math/bits"
 )
 
-func ldsp(gb *GameBoy, displacement byte, immediate uint16) {
-	// LD SP, $FFFF
-	gb.sp = immediate
+func ld(gb *GameBoy, ext byte, opcode byte, displacement byte, immediate uint16) {
+	x, y, z := OpCode(opcode).Split()
+	p, q := splitY(y)
+
+	if x == 0 && z == 1 && q == 0 {
+		// opcode ~= 0b00_XX0_001
+		switch p {
+		case 0:
+			gb.setBC(immediate)
+		case 1:
+			gb.setDE(immediate)
+		case 2:
+			gb.setHL(immediate)
+		case 3:
+			fmt.Println("LD SP, $EFFF")
+			gb.sp = immediate
+		}
+	}
+
 	// no flags to set
 }
 
-func xora(gb *GameBoy, displacement byte, immediate uint16) {
+func xor(gb *GameBoy, prefix byte, opcode byte, displacement byte, immediate uint16) {
 	// XOR A
 	gb.a ^= gb.a
+	fmt.Println("XOR A")
 
 	// set sign flag
 	if gb.a&0b1000_0000 != 0 {
