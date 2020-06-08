@@ -1,10 +1,10 @@
 package goboy
 
 type GameBoy struct {
-	memory [65536]byte // 64K RAM
-	pc     uint16      // Program Counter - The memory address of the next instruction to fetch
-	sp     uint16      // Stack Pointer - the memory address of the top of the stack
-	f      uint8       // Flags
+	memory [65536]uint8 // 64K RAM
+	pc     uint16       // Program Counter - The memory address of the next instruction to fetch
+	sp     uint16       // Stack Pointer - the memory address of the top of the stack
+	f      uint8        // Flags
 
 	// General purpose registers, f is reserved for the flags register
 	a uint8
@@ -17,7 +17,9 @@ type GameBoy struct {
 
 	tickCount uint64 // Number of elapsed ticks since the start of execution
 
-	romData []byte
+	romData []uint8
+
+	Debug bool // not part of the GameBoy spec, useful for debugging
 }
 
 const (

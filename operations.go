@@ -5,9 +5,11 @@ import (
 	"math/bits"
 )
 
-func ld(gb *GameBoy, ext byte, opcode byte, displacement byte, immediate uint16) {
-	x, y, z := OpCode(opcode).Split()
-	p, q := splitY(y)
+func ld(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uint16) {
+	gb.debugPrintlnf("operation LD")
+
+	x, z := opcode.GetX(), opcode.GetZ()
+	p, q := opcode.GetPQ()
 
 	if x == 0 && z == 1 && q == 0 {
 		// opcode ~= 0b00_XX0_001
@@ -17,20 +19,56 @@ func ld(gb *GameBoy, ext byte, opcode byte, displacement byte, immediate uint16)
 		case 1:
 			gb.setDE(immediate)
 		case 2:
+			// LD HL, $9FFF
 			gb.setHL(immediate)
 		case 3:
-			fmt.Println("LD SP, $EFFF")
+			// LD SP, $EFFF
 			gb.sp = immediate
 		}
 	}
 
-	// no flags to set
+	// no flags to change
 }
 
-func xor(gb *GameBoy, prefix byte, opcode byte, displacement byte, immediate uint16) {
-	// XOR A
-	gb.a ^= gb.a
-	fmt.Println("XOR A")
+// ldid covers both LDD and LDI
+func ldid(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uint16) {
+	gb.debugPrintlnf("operation LDD/LDI")
+
+	p, q := opcode.GetPQ()
+
+	var memLoc uint16
+	switch p {
+	case 0:
+		memLoc = gb.readBC()
+	case 1:
+		memLoc = gb.readDE()
+	case 2:
+		memLoc = gb.readHL()
+	case 3:
+		memLoc = gb.readHL()
+	}
+
+	if q == 1 {
+		gb.a = gb.ReadMemory(memLoc)
+	} else {
+		gb.WriteMemory(memLoc, gb.a)
+	}
+
+	if p == 2 {
+		gb.setHL(gb.readHL() + 1)
+	} else if p == 3 {
+		gb.setHL(gb.readHL() - 1)
+	}
+}
+
+func xor(gb *GameBoy, prefix uint8, opcode OpCode, displacement uint8, immediate uint16) {
+	gb.debugPrintlnf("XOR")
+
+	z := opcode.GetZ()
+
+	value := tableRRead(gb, z)
+
+	gb.a ^= value
 
 	// set sign flag
 	if gb.a&0b1000_0000 != 0 {
@@ -55,4 +93,28 @@ func xor(gb *GameBoy, prefix byte, opcode byte, displacement byte, immediate uin
 
 	// clear carry, high carry, and subtraction flags
 	gb.f &= ^(MaskHighCarryFlag | MaskSubtractionFlag | MaskCarryFlag)
+}
+
+func tableRRead(gb *GameBoy, z uint8) (value uint8) {
+	// table r from https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
+	switch z {
+	case 0:
+		return gb.b
+	case 1:
+		return gb.c
+	case 2:
+		return gb.d
+	case 3:
+		return gb.e
+	case 4:
+		return gb.h
+	case 5:
+		return gb.l
+	case 6:
+		return gb.ReadMemory(gb.readHL())
+	case 7:
+		return gb.a
+	}
+
+	panic(fmt.Sprintf("unexpected Table R lookup value: %d", z))
 }
