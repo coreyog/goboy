@@ -24,8 +24,15 @@ func (gb *GameBoy) WriteRom(address uint16, value byte) {
 func (gb *GameBoy) RunFrame() {
 	// this would probably continuously
 	// run instructions until a VBlank interrupt
-	for i := 0; i < 4; i++ {
+
+	// i=24579 - exit loop zeroing vram
+	for i := 0; i < 24580; i++ {
 		gb.debugPrintlnf("instruction #%d", i)
+
+		if gb.pc == 0x000C {
+			gb.debugPrintlnf("breakpoint")
+		}
+
 		gb.RunInstruction()
 	}
 }
@@ -65,10 +72,12 @@ func (gb *GameBoy) RunInstruction() {
 
 	// no matching instruction
 	if !ok {
+		// the actual gameboy does nothing, no crash, no change of flags, nothing
+		// TODO: remove this panic, eventually
 		panic(fmt.Sprintf("unrecognized opcode %.2X at offset %.2X", opcode, gb.pc))
 	}
 
-	gb.debugPrintlnf("prefix: %.2X, opcode: %.2X, has displacement: %t, immediate size: %d", prefix, opcode, opbytes.HasDisplacement, opbytes.ImmediateSize)
+	// gb.debugPrintlnf("prefix: %.2X, opcode: %.2X, has displacement: %t, immediate size: %d", prefix, opcode, opbytes.HasDisplacement, opbytes.ImmediateSize)
 
 	if opbytes.HasDisplacement {
 		// byte after opcode
@@ -86,7 +95,7 @@ func (gb *GameBoy) RunInstruction() {
 
 	offset += uint16(opbytes.ImmediateSize)
 
-	gb.debugPrintlnf("displacement: %.2X, immediate: %.4X", displacement, immediate)
+	// gb.debugPrintlnf("displacement: %.2X, immediate: %.4X", displacement, immediate)
 
 	if opbytes.Operation != nil {
 		opbytes.Operation(gb, prefix, OpCode(opcode), displacement, immediate)
@@ -96,6 +105,7 @@ func (gb *GameBoy) RunInstruction() {
 
 	gb.pc += offset
 
+	gb.debugPrintlnf("HL: %.4X", gb.readHL())
 	gb.debugPrintlnf("next PC: %.4X", gb.pc)
 }
 

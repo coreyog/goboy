@@ -62,7 +62,7 @@ func ldid(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate u
 }
 
 func xor(gb *GameBoy, prefix uint8, opcode OpCode, displacement uint8, immediate uint16) {
-	gb.debugPrintlnf("XOR")
+	gb.debugPrintlnf("operation XOR")
 
 	z := opcode.GetZ()
 
@@ -93,6 +93,53 @@ func xor(gb *GameBoy, prefix uint8, opcode OpCode, displacement uint8, immediate
 
 	// clear carry, high carry, and subtraction flags
 	gb.f &= ^(MaskHighCarryFlag | MaskSubtractionFlag | MaskCarryFlag)
+}
+
+func bit(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uint16) {
+	gb.debugPrintlnf("operation BIT")
+
+	y, z := opcode.GetY(), opcode.GetZ()
+	r := tableRRead(gb, z)
+
+	b := (r >> y) & 1
+
+	if b == 0 {
+		gb.f |= MaskZeroFlag
+	} else {
+		gb.f &= ^MaskZeroFlag
+	}
+
+	gb.f &= ^MaskSubtractionFlag // reset
+	gb.f |= MaskHighCarryFlag    // set
+}
+
+func jr(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uint16) {
+	gb.debugPrintlnf("operation JR")
+
+	y := opcode.GetY()
+
+	var jump bool
+
+	if y == 3 {
+		jump = true
+	} else {
+		// y = 4..7
+		switch y {
+		case 4: // NZ
+			jump = gb.f&MaskZeroFlag == 0
+		case 5: // Z
+			jump = gb.f&MaskZeroFlag != 0
+		case 6: // NC
+			jump = gb.f&MaskCarryFlag == 0
+		case 7: // C
+			jump = gb.f&MaskCarryFlag != 0
+		}
+	}
+
+	if jump {
+		signedEnlargedDisplacement := int16(int8(displacement))
+		gb.pc = uint16(int16(gb.pc) + signedEnlargedDisplacement)
+	}
 }
 
 func tableRRead(gb *GameBoy, z uint8) (value uint8) {
