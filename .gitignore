@@ -38,3 +38,7 @@ goboy
 *.zip
 *.rar
 *.7z
+*.bin
+
+**/dist/
+__debug_go

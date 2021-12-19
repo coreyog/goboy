@@ -6,11 +6,11 @@ const (
 )
 
 // ReadMemory reads a byte from memory at a given address, respecting memory mapping
-func (gb *GameBoy) ReadMemory(address int) (value byte) {
+func (gb *GameBoy) ReadMemory(address uint16) (value byte) {
 	return gb.memory[address]
 }
 
 // WriteMemory sets the value at a given address in memory, respecting memory mapping
-func (gb *GameBoy) WriteMemory(address int, value byte) {
+func (gb *GameBoy) WriteMemory(address uint16, value byte) {
 	gb.memory[address] = value
 }

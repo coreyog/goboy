@@ -2,14 +2,16 @@ package goboy
 
 import ()
 
-type OpCode byte
+type OpCode uint8
 
 const (
 	NOP OpCode = iota
-	EX
+	STOP
 	DJNZ
 	JR
 	LD
+	LDD
+	LDI
 	ADD
 	INC
 	DEC
@@ -52,22 +54,29 @@ const (
 type OpBytes struct {
 	Code            OpCode
 	HasDisplacement bool
-	ImmediateSize   byte // 0, 1, 2
-	Operation       func(gameboy *GameBoy, displacement byte, immediate uint16)
+	ImmediateSize   uint8 // 0, 1, 2
+	Operation       func(gameboy *GameBoy, prefix uint8, opcode OpCode, displacement uint8, immediate uint16)
 }
 
-func (code OpCode) Split() (x byte, y byte, z byte) {
-	c := byte(code)
-	x = c >> 6
-	y = (c >> 3) & 0b0111
-	z = c & 0b0111
-
-	return x, y, z
+func (code OpCode) GetX() (x uint8) {
+	c := uint8(code)
+	return c >> 6
 }
 
-func splitY(y byte) (p byte, q byte) {
-	p = (y >> 1) & 0b0011
-	q = y & 0b0001
+func (code OpCode) GetY() (y uint8) {
+	c := uint8(code)
+	return (c >> 3) & 0b0111
+}
+
+func (code OpCode) GetZ() (z uint8) {
+	c := uint8(code)
+	return c & 0b0111
+}
+
+func (code OpCode) GetPQ() (p uint8, q uint8) {
+	c := uint8(code)
+	p = (c & 0b00_110_000) >> 4
+	q = (c & 0b00_001_000) >> 3
 
 	return p, q
 }
@@ -76,34 +85,33 @@ var unprefixed = map[byte]OpBytes{
 	//XX_YYY_ZZZ
 	//   PPQ
 	0b00_000_000: {NOP, false, 0, nil},
-	0b00_001_000: {EX, false, 0, nil},
-	0b00_010_000: {DJNZ, true, 0, nil},
-
-	0b00_011_000: {JR, true, 0, nil},
-	0b00_100_000: {JR, true, 0, nil},
-	0b00_101_000: {JR, true, 0, nil},
-	0b00_110_000: {JR, true, 0, nil},
-	0b00_111_000: {JR, true, 0, nil},
+	0b00_001_000: {LD, false, 2, nil},
+	0b00_010_000: {STOP, false, 0, nil},
+	0b00_011_000: {JR, true, 0, jr},
+	0b00_100_000: {JR, true, 0, jr},
+	0b00_101_000: {JR, true, 0, jr},
+	0b00_110_000: {JR, true, 0, jr},
+	0b00_111_000: {JR, true, 0, jr},
 
 	0b00_000_001: {LD, false, 2, nil},
 	0b00_010_001: {LD, false, 2, nil},
-	0b00_100_001: {LD, false, 2, nil},
-	0b00_110_001: {LD, false, 2, ldsp},
+	0b00_100_001: {LD, false, 2, ld},
+	0b00_110_001: {LD, false, 2, ld},
 
 	0b00_001_001: {ADD, false, 0, nil},
 	0b00_011_001: {ADD, false, 0, nil},
 	0b00_101_001: {ADD, false, 0, nil},
 	0b00_111_001: {ADD, false, 0, nil},
 
-	0b00_000_010: {LD, false, 0, nil},
-	0b00_010_010: {LD, false, 0, nil},
-	0b00_100_010: {LD, false, 2, nil},
-	0b00_110_010: {LD, false, 2, nil},
+	0b00_000_010: {LD, false, 0, ldid},
+	0b00_010_010: {LD, false, 0, ldid},
+	0b00_100_010: {LDI, false, 0, ldid},
+	0b00_110_010: {LDD, false, 0, ldid},
 
-	0b00_001_010: {LD, false, 0, nil},
-	0b00_011_010: {LD, false, 0, nil},
-	0b00_101_010: {LD, false, 2, nil},
-	0b00_111_010: {LD, false, 2, nil},
+	0b00_001_010: {LD, false, 0, ldid},
+	0b00_011_010: {LD, false, 0, ldid},
+	0b00_101_010: {LDI, false, 0, ldid},
+	0b00_111_010: {LDD, false, 0, ldid},
 
 	0b00_000_011: {INC, false, 0, nil},
 	0b00_010_011: {INC, false, 0, nil},
@@ -134,14 +142,14 @@ var unprefixed = map[byte]OpBytes{
 	0b00_110_101: {DEC, false, 0, nil},
 	0b00_111_101: {DEC, false, 0, nil},
 
-	0b00_000_110: {LD, false, 0, nil},
-	0b00_001_110: {LD, false, 0, nil},
-	0b00_010_110: {LD, false, 0, nil},
-	0b00_011_110: {LD, false, 0, nil},
-	0b00_100_110: {LD, false, 0, nil},
-	0b00_101_110: {LD, false, 0, nil},
-	0b00_110_110: {LD, false, 0, nil},
-	0b00_111_110: {LD, false, 0, nil},
+	0b00_000_110: {LD, false, 1, nil},
+	0b00_001_110: {LD, false, 1, nil},
+	0b00_010_110: {LD, false, 1, nil},
+	0b00_011_110: {LD, false, 1, nil},
+	0b00_100_110: {LD, false, 1, nil},
+	0b00_101_110: {LD, false, 1, nil},
+	0b00_110_110: {LD, false, 1, nil},
+	0b00_111_110: {LD, false, 1, nil},
 
 	0b00_000_111: {RLCA, false, 0, nil},
 	0b00_001_111: {RRCA, false, 0, nil},
@@ -265,7 +273,7 @@ var unprefixed = map[byte]OpBytes{
 	0b10_101_100: {ALU, false, 0, nil},
 	0b10_101_101: {ALU, false, 0, nil},
 	0b10_101_110: {ALU, false, 0, nil},
-	0b10_101_111: {ALU, false, 0, xora},
+	0b10_101_111: {ALU, false, 0, xor},
 	0b10_110_000: {ALU, false, 0, nil},
 	0b10_110_001: {ALU, false, 0, nil},
 	0b10_110_010: {ALU, false, 0, nil},
@@ -288,10 +296,10 @@ var unprefixed = map[byte]OpBytes{
 	0b11_001_000: {RET, false, 0, nil},
 	0b11_010_000: {RET, false, 0, nil},
 	0b11_011_000: {RET, false, 0, nil},
-	0b11_100_000: {RET, false, 0, nil},
-	0b11_101_000: {RET, false, 0, nil},
-	0b11_110_000: {RET, false, 0, nil},
-	0b11_111_000: {RET, false, 0, nil},
+	0b11_100_000: {LD, false, 2, nil},
+	0b11_101_000: {ADD, true, 0, nil},
+	0b11_110_000: {LD, false, 1, nil},
+	0b11_111_000: {LD, true, 0, nil},
 
 	0b11_000_001: {POP, false, 0, nil},
 	0b11_010_001: {POP, false, 0, nil},
@@ -299,7 +307,7 @@ var unprefixed = map[byte]OpBytes{
 	0b11_110_001: {POP, false, 0, nil},
 
 	0b11_001_001: {RET, false, 0, nil},
-	0b11_011_001: {EXX, false, 0, nil},
+	0b11_011_001: {RETI, false, 0, nil},
 	0b11_101_001: {JP, false, 0, nil},
 	0b11_111_001: {LD, false, 0, nil},
 
@@ -307,17 +315,13 @@ var unprefixed = map[byte]OpBytes{
 	0b11_001_010: {JP, false, 2, nil},
 	0b11_010_010: {JP, false, 2, nil},
 	0b11_011_010: {JP, false, 2, nil},
-	0b11_100_010: {JP, false, 2, nil},
-	0b11_101_010: {JP, false, 2, nil},
-	0b11_110_010: {JP, false, 2, nil},
-	0b11_111_010: {JP, false, 2, nil},
+	0b11_100_010: {LD, false, 0, nil},
+	0b11_101_010: {LD, false, 2, nil},
+	0b11_110_010: {LD, false, 0, nil},
+	0b11_111_010: {LD, false, 2, nil},
 
 	0b11_000_011: {JP, false, 2, nil},
-
-	0b11_010_011: {OUT, false, 1, nil},
-	0b11_011_011: {IN, false, 1, nil},
-	0b11_100_011: {EX, false, 0, nil},
-	0b11_101_011: {EX, false, 0, nil},
+	// gap for CB prefix and removed instructions
 	0b11_110_011: {DI, false, 0, nil},
 	0b11_111_011: {EI, false, 0, nil},
 
@@ -325,10 +329,7 @@ var unprefixed = map[byte]OpBytes{
 	0b11_001_100: {CALL, false, 2, nil},
 	0b11_010_100: {CALL, false, 2, nil},
 	0b11_011_100: {CALL, false, 2, nil},
-	0b11_100_100: {CALL, false, 2, nil},
-	0b11_101_100: {CALL, false, 2, nil},
-	0b11_110_100: {CALL, false, 2, nil},
-	0b11_111_100: {CALL, false, 2, nil},
+	// gap for removed instructions
 
 	0b11_000_101: {PUSH, false, 0, nil},
 	0b11_010_101: {PUSH, false, 0, nil},
@@ -337,6 +338,7 @@ var unprefixed = map[byte]OpBytes{
 	//XX_YYY_ZZZ
 	//   PPQ
 	0b11_001_101: {CALL, false, 2, nil},
+	// gap for removed instructions
 
 	0b11_000_110: {ALU, false, 1, nil},
 	0b11_001_110: {ALU, false, 1, nil},
@@ -426,70 +428,70 @@ var cb = map[byte]OpBytes{
 	0b00_111_111: {ROT, false, 0, nil},
 	//XX_YYY_ZZZ
 	//   PPQ
-	0b01_000_000: {BIT, false, 0, nil},
-	0b01_000_001: {BIT, false, 0, nil},
-	0b01_000_010: {BIT, false, 0, nil},
-	0b01_000_011: {BIT, false, 0, nil},
-	0b01_000_100: {BIT, false, 0, nil},
-	0b01_000_101: {BIT, false, 0, nil},
-	0b01_000_110: {BIT, false, 0, nil},
-	0b01_000_111: {BIT, false, 0, nil},
-	0b01_001_000: {BIT, false, 0, nil},
-	0b01_001_001: {BIT, false, 0, nil},
-	0b01_001_010: {BIT, false, 0, nil},
-	0b01_001_011: {BIT, false, 0, nil},
-	0b01_001_100: {BIT, false, 0, nil},
-	0b01_001_101: {BIT, false, 0, nil},
-	0b01_001_110: {BIT, false, 0, nil},
-	0b01_001_111: {BIT, false, 0, nil},
-	0b01_010_000: {BIT, false, 0, nil},
-	0b01_010_001: {BIT, false, 0, nil},
-	0b01_010_010: {BIT, false, 0, nil},
-	0b01_010_011: {BIT, false, 0, nil},
-	0b01_010_100: {BIT, false, 0, nil},
-	0b01_010_101: {BIT, false, 0, nil},
-	0b01_010_110: {BIT, false, 0, nil},
-	0b01_010_111: {BIT, false, 0, nil},
-	0b01_011_000: {BIT, false, 0, nil},
-	0b01_011_001: {BIT, false, 0, nil},
-	0b01_011_010: {BIT, false, 0, nil},
-	0b01_011_011: {BIT, false, 0, nil},
-	0b01_011_100: {BIT, false, 0, nil},
-	0b01_011_101: {BIT, false, 0, nil},
-	0b01_011_110: {BIT, false, 0, nil},
-	0b01_011_111: {BIT, false, 0, nil},
-	0b01_100_000: {BIT, false, 0, nil},
-	0b01_100_001: {BIT, false, 0, nil},
-	0b01_100_010: {BIT, false, 0, nil},
-	0b01_100_011: {BIT, false, 0, nil},
-	0b01_100_100: {BIT, false, 0, nil},
-	0b01_100_101: {BIT, false, 0, nil},
-	0b01_100_110: {BIT, false, 0, nil},
-	0b01_100_111: {BIT, false, 0, nil},
-	0b01_101_000: {BIT, false, 0, nil},
-	0b01_101_001: {BIT, false, 0, nil},
-	0b01_101_010: {BIT, false, 0, nil},
-	0b01_101_011: {BIT, false, 0, nil},
-	0b01_101_100: {BIT, false, 0, nil},
-	0b01_101_101: {BIT, false, 0, nil},
-	0b01_101_110: {BIT, false, 0, nil},
-	0b01_101_111: {BIT, false, 0, nil},
-	0b01_110_000: {BIT, false, 0, nil},
-	0b01_110_001: {BIT, false, 0, nil},
-	0b01_110_010: {BIT, false, 0, nil},
-	0b01_110_011: {BIT, false, 0, nil},
-	0b01_110_100: {BIT, false, 0, nil},
-	0b01_110_101: {BIT, false, 0, nil},
-	0b01_110_110: {BIT, false, 0, nil},
-	0b01_110_111: {BIT, false, 0, nil},
-	0b01_111_000: {BIT, false, 0, nil},
-	0b01_111_001: {BIT, false, 0, nil},
-	0b01_111_010: {BIT, false, 0, nil},
-	0b01_111_011: {BIT, false, 0, nil},
-	0b01_111_100: {BIT, false, 0, nil},
-	0b01_111_101: {BIT, false, 0, nil},
-	0b01_111_110: {BIT, false, 0, nil},
-	0b01_111_111: {BIT, false, 0, nil},
+	0b01_000_000: {BIT, false, 0, bit},
+	0b01_000_001: {BIT, false, 0, bit},
+	0b01_000_010: {BIT, false, 0, bit},
+	0b01_000_011: {BIT, false, 0, bit},
+	0b01_000_100: {BIT, false, 0, bit},
+	0b01_000_101: {BIT, false, 0, bit},
+	0b01_000_110: {BIT, false, 0, bit},
+	0b01_000_111: {BIT, false, 0, bit},
+	0b01_001_000: {BIT, false, 0, bit},
+	0b01_001_001: {BIT, false, 0, bit},
+	0b01_001_010: {BIT, false, 0, bit},
+	0b01_001_011: {BIT, false, 0, bit},
+	0b01_001_100: {BIT, false, 0, bit},
+	0b01_001_101: {BIT, false, 0, bit},
+	0b01_001_110: {BIT, false, 0, bit},
+	0b01_001_111: {BIT, false, 0, bit},
+	0b01_010_000: {BIT, false, 0, bit},
+	0b01_010_001: {BIT, false, 0, bit},
+	0b01_010_010: {BIT, false, 0, bit},
+	0b01_010_011: {BIT, false, 0, bit},
+	0b01_010_100: {BIT, false, 0, bit},
+	0b01_010_101: {BIT, false, 0, bit},
+	0b01_010_110: {BIT, false, 0, bit},
+	0b01_010_111: {BIT, false, 0, bit},
+	0b01_011_000: {BIT, false, 0, bit},
+	0b01_011_001: {BIT, false, 0, bit},
+	0b01_011_010: {BIT, false, 0, bit},
+	0b01_011_011: {BIT, false, 0, bit},
+	0b01_011_100: {BIT, false, 0, bit},
+	0b01_011_101: {BIT, false, 0, bit},
+	0b01_011_110: {BIT, false, 0, bit},
+	0b01_011_111: {BIT, false, 0, bit},
+	0b01_100_000: {BIT, false, 0, bit},
+	0b01_100_001: {BIT, false, 0, bit},
+	0b01_100_010: {BIT, false, 0, bit},
+	0b01_100_011: {BIT, false, 0, bit},
+	0b01_100_100: {BIT, false, 0, bit},
+	0b01_100_101: {BIT, false, 0, bit},
+	0b01_100_110: {BIT, false, 0, bit},
+	0b01_100_111: {BIT, false, 0, bit},
+	0b01_101_000: {BIT, false, 0, bit},
+	0b01_101_001: {BIT, false, 0, bit},
+	0b01_101_010: {BIT, false, 0, bit},
+	0b01_101_011: {BIT, false, 0, bit},
+	0b01_101_100: {BIT, false, 0, bit},
+	0b01_101_101: {BIT, false, 0, bit},
+	0b01_101_110: {BIT, false, 0, bit},
+	0b01_101_111: {BIT, false, 0, bit},
+	0b01_110_000: {BIT, false, 0, bit},
+	0b01_110_001: {BIT, false, 0, bit},
+	0b01_110_010: {BIT, false, 0, bit},
+	0b01_110_011: {BIT, false, 0, bit},
+	0b01_110_100: {BIT, false, 0, bit},
+	0b01_110_101: {BIT, false, 0, bit},
+	0b01_110_110: {BIT, false, 0, bit},
+	0b01_110_111: {BIT, false, 0, bit},
+	0b01_111_000: {BIT, false, 0, bit},
+	0b01_111_001: {BIT, false, 0, bit},
+	0b01_111_010: {BIT, false, 0, bit},
+	0b01_111_011: {BIT, false, 0, bit},
+	0b01_111_100: {BIT, false, 0, bit},
+	0b01_111_101: {BIT, false, 0, bit},
+	0b01_111_110: {BIT, false, 0, bit},
+	0b01_111_111: {BIT, false, 0, bit},
 	//XX_YYY_ZZZ
 	//   PPQ
 	0b10_000_000: {RES, false, 0, nil},
@@ -622,95 +624,4 @@ var cb = map[byte]OpBytes{
 	0b11_111_101: {SET, false, 0, nil},
 	0b11_111_110: {SET, false, 0, nil},
 	0b11_111_111: {SET, false, 0, nil},
-}
-
-var ed = map[byte]OpBytes{
-	//XX_YYY_ZZZ
-	//   PPQ
-	0b01_000_000: {IN, false, 0, nil},
-	0b01_001_000: {IN, false, 0, nil},
-	0b01_010_000: {IN, false, 0, nil},
-	0b01_011_000: {IN, false, 0, nil},
-	0b01_100_000: {IN, false, 0, nil},
-	0b01_101_000: {IN, false, 0, nil},
-	0b01_110_000: {IN, false, 0, nil},
-	0b01_111_000: {IN, false, 0, nil},
-
-	0b01_000_001: {OUT, false, 0, nil},
-	0b01_001_001: {OUT, false, 0, nil},
-	0b01_010_001: {OUT, false, 0, nil},
-	0b01_011_001: {OUT, false, 0, nil},
-	0b01_100_001: {OUT, false, 0, nil},
-	0b01_101_001: {OUT, false, 0, nil},
-	0b01_110_001: {OUT, false, 0, nil},
-	0b01_111_001: {OUT, false, 0, nil},
-
-	0b01_000_010: {SBC, false, 0, nil},
-	0b01_010_010: {SBC, false, 0, nil},
-	0b01_100_010: {SBC, false, 0, nil},
-	0b01_110_010: {SBC, false, 0, nil},
-
-	0b01_001_010: {ADC, false, 0, nil},
-	0b01_011_010: {ADC, false, 0, nil},
-	0b01_101_010: {ADC, false, 0, nil},
-	0b01_111_010: {ADC, false, 0, nil},
-
-	0b01_000_011: {LD, false, 2, nil},
-	0b01_010_011: {LD, false, 2, nil},
-	0b01_100_011: {LD, false, 2, nil},
-	0b01_110_011: {LD, false, 2, nil},
-	0b01_001_011: {LD, false, 2, nil},
-	0b01_011_011: {LD, false, 2, nil},
-	0b01_101_011: {LD, false, 2, nil},
-	0b01_111_011: {LD, false, 2, nil},
-
-	0b01_000_100: {NEG, false, 0, nil},
-	0b01_001_100: {NEG, false, 0, nil},
-	0b01_010_100: {NEG, false, 0, nil},
-	0b01_011_100: {NEG, false, 0, nil},
-	0b01_100_100: {NEG, false, 0, nil},
-	0b01_101_100: {NEG, false, 0, nil},
-	0b01_110_100: {NEG, false, 0, nil},
-	0b01_111_100: {NEG, false, 0, nil},
-
-	0b01_000_101: {RETN, false, 0, nil},
-	0b01_001_101: {RETI, false, 0, nil},
-	0b01_010_101: {RETN, false, 0, nil},
-	0b01_011_101: {RETN, false, 0, nil},
-	0b01_100_101: {RETN, false, 0, nil},
-	0b01_101_101: {RETN, false, 0, nil},
-	0b01_110_101: {RETN, false, 0, nil},
-	0b01_111_101: {RETN, false, 0, nil},
-	//XX_YYY_ZZZ
-	//   PPQ
-	0b01_000_110: {IM, false, 0, nil},
-	0b01_001_110: {IM, false, 0, nil},
-	0b01_010_110: {IM, false, 0, nil},
-	0b01_011_110: {IM, false, 0, nil},
-
-	0b01_000_111: {LD, false, 0, nil},
-	0b01_001_111: {LD, false, 0, nil},
-	0b01_010_111: {LD, false, 0, nil},
-	0b01_011_111: {LD, false, 0, nil},
-	0b01_100_111: {RRD, false, 0, nil},
-	0b01_101_111: {RLD, false, 0, nil},
-	0b01_110_111: {NOP, false, 0, nil},
-	0b01_111_111: {NOP, false, 0, nil},
-
-	0b10_100_000: {BLI, false, 0, nil},
-	0b10_100_001: {BLI, false, 0, nil},
-	0b10_100_010: {BLI, false, 0, nil},
-	0b10_100_011: {BLI, false, 0, nil},
-	0b10_101_000: {BLI, false, 0, nil},
-	0b10_101_001: {BLI, false, 0, nil},
-	0b10_101_010: {BLI, false, 0, nil},
-	0b10_101_011: {BLI, false, 0, nil},
-	0b10_110_000: {BLI, false, 0, nil},
-	0b10_110_001: {BLI, false, 0, nil},
-	0b10_110_010: {BLI, false, 0, nil},
-	0b10_110_011: {BLI, false, 0, nil},
-	0b10_111_000: {BLI, false, 0, nil},
-	0b10_111_001: {BLI, false, 0, nil},
-	0b10_111_010: {BLI, false, 0, nil},
-	0b10_111_011: {BLI, false, 0, nil},
 }
