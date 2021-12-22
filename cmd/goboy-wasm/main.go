@@ -8,7 +8,6 @@ import (
 	"syscall/js"
 
 	"github.com/coreyog/goboy"
-	"github.com/coreyog/goboy-wasm/gradient"
 
 	"golang.org/x/image/colornames"
 )
@@ -116,7 +115,7 @@ func onFrame(this js.Value, args []js.Value) interface{} {
 	// fmt.Println(text)
 
 	// inset colored rectangle
-	draw.Draw(img, image.Rect(10, 10, width-10, height-10), image.NewUniform(gradient.Keypoints.GetInterpolatedColorFor(progress)), image.Point{}, draw.Src)
+	draw.Draw(img, image.Rect(10, 10, width-10, height-10), image.NewUniform(Keypoints.GetInterpolatedColorFor(progress)), image.Point{}, draw.Src)
 	drawImage(ctx, img)
 
 	// increment progress through the gradient
