@@ -1,7 +1,5 @@
 package goboy
 
-import ()
-
 type OpCode uint8
 
 const (
@@ -50,6 +48,53 @@ const (
 	RLD
 	BLI
 )
+
+var opNames = map[OpCode]string{
+	NOP:  "NOP",
+	STOP: "STOP",
+	DJNZ: "DJNZ",
+	JR:   "JR",
+	LD:   "LD",
+	LDD:  "LDD",
+	LDI:  "LDI",
+	ADD:  "ADD",
+	INC:  "INC",
+	DEC:  "DEC",
+	RLCA: "RLCA",
+	RRCA: "RRCA",
+	RLA:  "RLA",
+	RRA:  "RRA",
+	DAA:  "DAA",
+	CPL:  "CPL",
+	SCF:  "SCF",
+	CCF:  "CCF",
+	HALT: "HALT",
+	ALU:  "ALU",
+	RET:  "RET",
+	POP:  "POP",
+	JP:   "JP",
+	EXX:  "EXX",
+	OUT:  "OUT",
+	IN:   "IN",
+	DI:   "DI",
+	EI:   "EI",
+	CALL: "CALL",
+	PUSH: "PUSH",
+	RST:  "RST",
+	ROT:  "ROT",
+	BIT:  "BIT",
+	RES:  "RES",
+	SET:  "SET",
+	SBC:  "SBC",
+	ADC:  "ADC",
+	NEG:  "NEG",
+	RETN: "RETN",
+	RETI: "RETI",
+	IM:   "IM",
+	RRD:  "RRD",
+	RLD:  "RLD",
+	BLI:  "BLI",
+}
 
 type OpBytes struct {
 	Code            OpCode

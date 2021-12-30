@@ -21,5 +21,5 @@ func TestDebug(t *testing.T) {
 
 	gb.RunFrame()
 
-	t.Fail() // fail so `go test` prints stdout
+	t.Skip()
 }
