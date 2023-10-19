@@ -25,6 +25,33 @@ func ld(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uin
 			// LD SP, $EFFF
 			gb.sp = immediate
 		}
+	} else if x == 0 && z == 6 {
+		// LD r[y], n
+		y := opcode.GetY()
+		switch y {
+		case 0:
+			gb.b = byte(immediate)
+		case 1:
+			gb.c = byte(immediate)
+		case 2:
+			gb.d = byte(immediate)
+		case 3:
+			gb.e = byte(immediate)
+		case 4:
+			gb.h = byte(immediate)
+		case 5:
+			gb.l = byte(immediate)
+		case 6:
+			gb.WriteMemory(gb.readHL(), byte(immediate))
+		case 7:
+			gb.a = byte(immediate)
+		}
+	} else if x == 3 && z == 2 {
+		y := opcode.GetY()
+		switch y {
+		case 4:
+			gb.WriteMemory(0xFF00+uint16(gb.c), gb.a)
+		}
 	}
 
 	// no flags to change
@@ -58,6 +85,34 @@ func ldid(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate u
 		gb.setHL(gb.readHL() + 1)
 	} else if p == 3 {
 		gb.setHL(gb.readHL() - 1)
+	}
+}
+
+func inc(gb *GameBoy, prefix uint8, opcode OpCode, displacement uint8, immediate uint16) {
+	gb.debugPrintlnf("operation INC")
+
+	y, z := opcode.GetY(), opcode.GetZ()
+
+	if z == 4 {
+		switch y {
+		case 0:
+			gb.b++
+		case 1:
+			gb.c++
+		case 2:
+			gb.d++
+		case 3:
+			gb.e++
+		case 4:
+			gb.h++
+		case 5:
+			gb.l++
+		case 6:
+			hl := gb.readHL()
+			gb.WriteMemory(hl, gb.ReadMemory(hl)+1)
+		case 7:
+			gb.a++
+		}
 	}
 }
 

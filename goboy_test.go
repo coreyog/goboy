@@ -1,7 +1,7 @@
 package goboy_test
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/coreyog/goboy"
@@ -9,7 +9,7 @@ import (
 
 func TestDebug(t *testing.T) {
 	// utility test for debugging goboy internals without WASM
-	rom, err := ioutil.ReadFile("cmd/goboy-wasm/dist/dmg0_rom.bin")
+	rom, err := os.ReadFile("cmd/goboy-wasm/dist/dmg0_rom.bin")
 	if err != nil {
 		panic(err)
 	}

@@ -26,10 +26,10 @@ func (gb *GameBoy) RunFrame() {
 	// run instructions until a VBlank interrupt
 
 	// i=24579 - exit loop zeroing vram
-	for i := 0; i < 24580; i++ {
+	for i := 0; i < 24585; i++ {
 		gb.debugPrintlnf("instruction #%d", i)
 
-		if gb.pc == 0x000C {
+		if gb.pc == 0x0016 {
 			gb.debugPrintlnf("breakpoint")
 		}
 

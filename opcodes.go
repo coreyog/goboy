@@ -169,7 +169,7 @@ var unprefixed = map[byte]OpBytes{
 	0b00_111_011: {DEC, false, 0, nil},
 
 	0b00_000_100: {INC, false, 0, nil},
-	0b00_001_100: {INC, false, 0, nil},
+	0b00_001_100: {INC, false, 0, inc},
 	0b00_010_100: {INC, false, 0, nil},
 	0b00_011_100: {INC, false, 0, nil},
 	0b00_100_100: {INC, false, 0, nil},
@@ -188,13 +188,13 @@ var unprefixed = map[byte]OpBytes{
 	0b00_111_101: {DEC, false, 0, nil},
 
 	0b00_000_110: {LD, false, 1, nil},
-	0b00_001_110: {LD, false, 1, nil},
+	0b00_001_110: {LD, false, 1, ld},
 	0b00_010_110: {LD, false, 1, nil},
 	0b00_011_110: {LD, false, 1, nil},
 	0b00_100_110: {LD, false, 1, nil},
 	0b00_101_110: {LD, false, 1, nil},
 	0b00_110_110: {LD, false, 1, nil},
-	0b00_111_110: {LD, false, 1, nil},
+	0b00_111_110: {LD, false, 1, ld},
 
 	0b00_000_111: {RLCA, false, 0, nil},
 	0b00_001_111: {RRCA, false, 0, nil},
@@ -360,7 +360,7 @@ var unprefixed = map[byte]OpBytes{
 	0b11_001_010: {JP, false, 2, nil},
 	0b11_010_010: {JP, false, 2, nil},
 	0b11_011_010: {JP, false, 2, nil},
-	0b11_100_010: {LD, false, 0, nil},
+	0b11_100_010: {LD, false, 0, ld},
 	0b11_101_010: {LD, false, 2, nil},
 	0b11_110_010: {LD, false, 0, nil},
 	0b11_111_010: {LD, false, 2, nil},
