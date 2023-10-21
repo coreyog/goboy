@@ -6,7 +6,7 @@ import (
 )
 
 func ld(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uint16) {
-	gb.debugPrintlnf("operation LD")
+	gb.debugLnF("operation LD")
 
 	x, z := opcode.GetX(), opcode.GetZ()
 	p, q := opcode.GetPQ()
@@ -59,7 +59,7 @@ func ld(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uin
 
 // ldid covers both LDD and LDI
 func ldid(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uint16) {
-	gb.debugPrintlnf("operation LDD/LDI")
+	gb.debugLnF("operation LDD/LDI")
 
 	p, q := opcode.GetPQ()
 
@@ -89,7 +89,7 @@ func ldid(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate u
 }
 
 func inc(gb *GameBoy, prefix uint8, opcode OpCode, displacement uint8, immediate uint16) {
-	gb.debugPrintlnf("operation INC")
+	gb.debugLnF("operation INC")
 
 	y, z := opcode.GetY(), opcode.GetZ()
 
@@ -117,7 +117,7 @@ func inc(gb *GameBoy, prefix uint8, opcode OpCode, displacement uint8, immediate
 }
 
 func xor(gb *GameBoy, prefix uint8, opcode OpCode, displacement uint8, immediate uint16) {
-	gb.debugPrintlnf("operation XOR")
+	gb.debugLnF("operation XOR")
 
 	z := opcode.GetZ()
 
@@ -151,7 +151,7 @@ func xor(gb *GameBoy, prefix uint8, opcode OpCode, displacement uint8, immediate
 }
 
 func bit(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uint16) {
-	gb.debugPrintlnf("operation BIT")
+	gb.debugLnF("operation BIT")
 
 	y, z := opcode.GetY(), opcode.GetZ()
 	r := tableRRead(gb, z)
@@ -169,7 +169,7 @@ func bit(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate ui
 }
 
 func jr(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uint16) {
-	gb.debugPrintlnf("operation JR")
+	gb.debugLnF("operation JR")
 
 	y := opcode.GetY()
 

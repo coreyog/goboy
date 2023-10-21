@@ -10,9 +10,15 @@ func (gb *GameBoy) LoadROM(d []byte) {
 	gb.pc = 0
 }
 
-// ReadRom reads a byte from Rom at a given address, respecting Rom mapping
-func (gb *GameBoy) ReadRom(address uint16) (value byte) {
+// ReadRom8 reads a byte from Rom at a given address, respecting Rom mapping
+func (gb *GameBoy) ReadRom8(address uint16) (value byte) {
 	return gb.romData[address]
+}
+
+func (gb *GameBoy) ReadRom16(address uint16) (value uint16) {
+	lsb := gb.romData[address] // little endian
+	msb := gb.romData[address+1]
+	return mergeBytes(msb, lsb)
 }
 
 // WriteRom sets the value at a given address in Rom, respecting Rom mapping
@@ -27,10 +33,10 @@ func (gb *GameBoy) RunFrame() {
 
 	// i=24579 - exit loop zeroing vram
 	for i := 0; i < 24585; i++ {
-		gb.debugPrintlnf("instruction #%d", i)
+		gb.debugLnF("instruction #%d", i)
 
 		if gb.pc == 0x0016 {
-			gb.debugPrintlnf("breakpoint")
+			gb.debugLnF("breakpoint")
 		}
 
 		gb.RunInstruction()
@@ -38,17 +44,15 @@ func (gb *GameBoy) RunFrame() {
 }
 
 func (gb *GameBoy) RunInstruction() {
-	if gb.Debug {
-		start := time.Now()
-		defer func() {
-			gb.debugPrintlnf("instruction ET: %s\n", time.Since(start))
-		}()
-	}
+	start := time.Now()
+	defer func() {
+		gb.debugLnF("instruction ET: %s\n", time.Since(start))
+	}()
 
 	// first byte of instruction might be a prefix
-	gb.debugPrintlnf("PC: %.4X", gb.pc)
+	gb.debugLnF("PC: %.4X", gb.pc)
 
-	prefix := gb.ReadRom(gb.pc)
+	prefix := gb.ReadRom8(gb.pc)
 	offset := uint16(1)
 
 	var opbytes OpBytes
@@ -58,7 +62,7 @@ func (gb *GameBoy) RunInstruction() {
 
 	// check for known prefixes
 	if prefix == 0xCB {
-		opcode = gb.ReadRom(gb.pc + offset)
+		opcode = gb.ReadRom8(gb.pc + offset)
 		offset++
 
 		opbytes, ok = cb[opcode]
@@ -81,16 +85,14 @@ func (gb *GameBoy) RunInstruction() {
 
 	if opbytes.HasDisplacement {
 		// byte after opcode
-		displacement = gb.ReadRom(gb.pc + offset)
+		displacement = gb.ReadRom8(gb.pc + offset)
 		offset++
 	}
 
 	if opbytes.ImmediateSize == 1 {
-		immediate = uint16(gb.ReadRom(gb.pc + offset))
+		immediate = uint16(gb.ReadRom8(gb.pc + offset))
 	} else if opbytes.ImmediateSize == 2 {
-		lsb := gb.ReadRom(gb.pc + offset) // little endian
-		msb := gb.ReadRom(gb.pc + offset + 1)
-		immediate = mergeBytes(msb, lsb)
+		immediate = gb.ReadRom16(gb.pc + offset)
 	}
 
 	offset += uint16(opbytes.ImmediateSize)
@@ -100,16 +102,16 @@ func (gb *GameBoy) RunInstruction() {
 	if opbytes.Operation != nil {
 		opbytes.Operation(gb, prefix, OpCode(opcode), displacement, immediate)
 	} else if opcode != 0 {
-		gb.debugPrintlnf("unknown opcode %.2X at PC %.4X", opcode, gb.pc)
+		gb.debugLnF("unknown opcode %.2X at PC %.4X", opcode, gb.pc)
 	}
 
 	gb.pc += offset
 
-	gb.debugPrintlnf("HL: %.4X", gb.readHL())
-	gb.debugPrintlnf("next PC: %.4X", gb.pc)
+	gb.debugLnF("HL: %.4X", gb.readHL())
+	gb.debugLnF("next PC: %.4X", gb.pc)
 }
 
-func (gb *GameBoy) debugPrintlnf(format string, a ...interface{}) {
+func (gb *GameBoy) debugLnF(format string, a ...interface{}) {
 	if gb.Debug {
 		fmt.Printf(format, a...)
 		fmt.Println()
