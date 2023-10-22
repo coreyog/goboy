@@ -3,6 +3,8 @@ package goboy
 import (
 	"fmt"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 func (gb *GameBoy) LoadROM(d []byte) {
@@ -31,11 +33,10 @@ func (gb *GameBoy) RunFrame() {
 	// this would probably continuously
 	// run instructions until a VBlank interrupt
 
-	// i=24579 - exit loop zeroing vram
-	for i := 0; i < 24585; i++ {
+	for i := 0; i <= 24599; i++ {
 		gb.debugLnF("instruction #%d", i)
 
-		if gb.pc == 0x0016 {
+		if gb.pc == 0x009B {
 			gb.debugLnF("breakpoint")
 		}
 
@@ -78,7 +79,7 @@ func (gb *GameBoy) RunInstruction() {
 	if !ok {
 		// the actual gameboy does nothing, no crash, no change of flags, nothing
 		// TODO: remove this panic, eventually
-		panic(fmt.Sprintf("unrecognized opcode %.2X at offset %.2X", opcode, gb.pc))
+		panic(errors.New(fmt.Sprintf("unrecognized opcode %.2X at offset %.2X", opcode, gb.pc)))
 	}
 
 	// gb.debugPrintlnf("prefix: %.2X, opcode: %.2X, has displacement: %t, immediate size: %d", prefix, opcode, opbytes.HasDisplacement, opbytes.ImmediateSize)

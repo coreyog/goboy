@@ -2,6 +2,7 @@ package main
 
 import (
 	colorful "github.com/lucasb-eyer/go-colorful"
+	"github.com/pkg/errors"
 )
 
 type GradientTable []struct {
@@ -23,7 +24,7 @@ func init() {
 func MustParseHex(s string) colorful.Color {
 	c, err := colorful.Hex(s)
 	if err != nil {
-		panic("MustParseHex: " + err.Error())
+		panic(errors.New("MustParseHex: " + err.Error()))
 	}
 	return c
 }

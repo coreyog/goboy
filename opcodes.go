@@ -139,8 +139,8 @@ var unprefixed = map[byte]OpBytes{
 	0b00_111_000: {JR, true, 0, jr},
 
 	0b00_000_001: {LD, false, 2, nil},
-	0b00_010_001: {LD, false, 2, nil},
-	0b00_100_001: {LD, false, 2, ld},
+	0b00_010_001: {LD, false, 2, ld}, // LD DE, nn
+	0b00_100_001: {LD, false, 2, ld}, // LD HL, nn
 	0b00_110_001: {LD, false, 2, ld},
 
 	0b00_001_001: {ADD, false, 0, nil},
@@ -151,10 +151,10 @@ var unprefixed = map[byte]OpBytes{
 	0b00_000_010: {LD, false, 0, ldid},
 	0b00_010_010: {LD, false, 0, ldid},
 	0b00_100_010: {LDI, false, 0, ldid},
-	0b00_110_010: {LDD, false, 0, ldid},
+	0b00_110_010: {LDD, false, 0, ldid}, // LD (HL-), A which is equivalent to LDD (HL), A
 
 	0b00_001_010: {LD, false, 0, ldid},
-	0b00_011_010: {LD, false, 0, ldid},
+	0b00_011_010: {LD, false, 0, ldid}, // LD A, (DE)
 	0b00_101_010: {LDI, false, 0, ldid},
 	0b00_111_010: {LDD, false, 0, ldid},
 
@@ -187,14 +187,14 @@ var unprefixed = map[byte]OpBytes{
 	0b00_110_101: {DEC, false, 0, nil},
 	0b00_111_101: {DEC, false, 0, nil},
 
-	0b00_000_110: {LD, false, 1, nil},
+	0b00_000_110: {LD, false, 1, ld}, // LD B, n
 	0b00_001_110: {LD, false, 1, ld},
 	0b00_010_110: {LD, false, 1, nil},
 	0b00_011_110: {LD, false, 1, nil},
 	0b00_100_110: {LD, false, 1, nil},
 	0b00_101_110: {LD, false, 1, nil},
 	0b00_110_110: {LD, false, 1, nil},
-	0b00_111_110: {LD, false, 1, ld},
+	0b00_111_110: {LD, false, 1, ld}, // LD A, n
 
 	0b00_000_111: {RLCA, false, 0, nil},
 	0b00_001_111: {RRCA, false, 0, nil},
@@ -220,7 +220,7 @@ var unprefixed = map[byte]OpBytes{
 	0b01_001_100: {LD, false, 0, nil},
 	0b01_001_101: {LD, false, 0, nil},
 	0b01_001_110: {LD, false, 0, nil},
-	0b01_001_111: {LD, false, 0, nil},
+	0b01_001_111: {LD, false, 0, ld}, // LD C, A
 	0b01_010_000: {LD, false, 0, nil},
 	0b01_010_001: {LD, false, 0, nil},
 	0b01_010_010: {LD, false, 0, nil},
@@ -260,7 +260,7 @@ var unprefixed = map[byte]OpBytes{
 	0b01_110_100: {LD, false, 0, nil},
 	0b01_110_101: {LD, false, 0, nil},
 	0b01_110_110: {HALT, false, 0, nil},
-	0b01_110_111: {LD, false, 0, nil},
+	0b01_110_111: {LD, false, 0, ld}, // LD (HL), A
 	0b01_111_000: {LD, false, 0, nil},
 	0b01_111_001: {LD, false, 0, nil},
 	0b01_111_010: {LD, false, 0, nil},
@@ -341,7 +341,7 @@ var unprefixed = map[byte]OpBytes{
 	0b11_001_000: {RET, false, 0, nil},
 	0b11_010_000: {RET, false, 0, nil},
 	0b11_011_000: {RET, false, 0, nil},
-	0b11_100_000: {LD, false, 2, nil},
+	0b11_100_000: {LD, false, 1, ld}, // LD (0xFF00 + n), A
 	0b11_101_000: {ADD, true, 0, nil},
 	0b11_110_000: {LD, false, 1, nil},
 	0b11_111_000: {LD, true, 0, nil},
@@ -360,7 +360,7 @@ var unprefixed = map[byte]OpBytes{
 	0b11_001_010: {JP, false, 2, nil},
 	0b11_010_010: {JP, false, 2, nil},
 	0b11_011_010: {JP, false, 2, nil},
-	0b11_100_010: {LD, false, 0, ld},
+	0b11_100_010: {LD, false, 0, ld}, // LD ($FF00+C),A
 	0b11_101_010: {LD, false, 2, nil},
 	0b11_110_010: {LD, false, 0, nil},
 	0b11_111_010: {LD, false, 2, nil},
@@ -376,13 +376,13 @@ var unprefixed = map[byte]OpBytes{
 	0b11_011_100: {CALL, false, 2, nil},
 	// gap for removed instructions
 
-	0b11_000_101: {PUSH, false, 0, nil},
-	0b11_010_101: {PUSH, false, 0, nil},
-	0b11_100_101: {PUSH, false, 0, nil},
-	0b11_110_101: {PUSH, false, 0, nil},
+	0b11_000_101: {PUSH, false, 0, push}, // PUSH BC
+	0b11_010_101: {PUSH, false, 0, push}, // PUSH DE
+	0b11_100_101: {PUSH, false, 0, push}, // PUSH HL
+	0b11_110_101: {PUSH, false, 0, push}, // PUSH AF
 	//XX_YYY_ZZZ
 	//   PPQ
-	0b11_001_101: {CALL, false, 2, nil},
+	0b11_001_101: {CALL, false, 2, call}, // CALL nn
 	// gap for removed instructions
 
 	0b11_000_110: {ALU, false, 1, nil},
@@ -424,7 +424,7 @@ var cb = map[byte]OpBytes{
 	0b00_001_110: {ROT, false, 0, nil},
 	0b00_001_111: {ROT, false, 0, nil},
 	0b00_010_000: {ROT, false, 0, nil},
-	0b00_010_001: {ROT, false, 0, nil},
+	0b00_010_001: {ROT, false, 0, rl}, // RL C
 	0b00_010_010: {ROT, false, 0, nil},
 	0b00_010_011: {ROT, false, 0, nil},
 	0b00_010_100: {ROT, false, 0, nil},

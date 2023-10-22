@@ -5,14 +5,13 @@ import (
 	"testing"
 
 	"github.com/coreyog/goboy"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDebug(t *testing.T) {
 	// utility test for debugging goboy internals without WASM
-	rom, err := os.ReadFile("cmd/goboy-wasm/dist/dmg0_rom.bin")
-	if err != nil {
-		panic(err)
-	}
+	rom, err := os.ReadFile("cmd/goboy-wasm/dist/DMG_ROM.bin")
+	assert.NoError(t, err)
 
 	gb := &goboy.GameBoy{}
 	gb.Debug = true
