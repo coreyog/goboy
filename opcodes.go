@@ -670,3 +670,7 @@ var cb = map[byte]OpBytes{
 	0b11_111_110: {SET, false, 0, nil},
 	0b11_111_111: {SET, false, 0, nil},
 }
+
+func GetOpLookups() (map[byte]OpBytes, map[byte]OpBytes, map[OpCode]string) {
+	return unprefixed, cb, opNames
+}
