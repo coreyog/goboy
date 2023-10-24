@@ -2,7 +2,6 @@ package goboy
 
 import (
 	"fmt"
-	"math/bits"
 
 	"github.com/pkg/errors"
 )
@@ -10,7 +9,7 @@ import (
 func ld(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uint16) {
 	gb.debugLnF("operation LD")
 
-	x, z := opcode.GetX(), opcode.GetZ()
+	x, y, z := opcode.GetX(), opcode.GetY(), opcode.GetZ()
 	p, q := opcode.GetPQ()
 
 	if x == 0 {
@@ -18,16 +17,15 @@ func ld(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uin
 			tableRPWrite(gb, p, immediate)
 		} else if z == 6 {
 			// LD r[y], n
-			y := opcode.GetY()
 			tableRWrite(gb, y, byte(immediate))
 		}
 	} else if x == 1 {
-		value := tableRRead(gb, z)
+		if z == 6 {
+			value := tableRRead(gb, z)
 
-		y := opcode.GetY()
-		tableRWrite(gb, y, value)
+			tableRWrite(gb, y, value)
+		}
 	} else if x == 3 {
-		y := opcode.GetY()
 		if z == 0 {
 			switch y {
 			case 4:
@@ -71,15 +69,81 @@ func ldid(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate u
 	} else if p == 3 {
 		gb.setHL(gb.readHL() - 1)
 	}
+
+	// no flags to change
 }
 
 func inc(gb *GameBoy, prefix uint8, opcode OpCode, displacement uint8, immediate uint16) {
 	gb.debugLnF("operation INC")
 
 	y, z := opcode.GetY(), opcode.GetZ()
+	var oldVal uint8
 
 	if z == 4 {
-		tableRWrite(gb, y, tableRRead(gb, y)+1)
+		oldVal = tableRRead(gb, y)
+		tableRWrite(gb, y, oldVal+1)
+	}
+
+	if oldVal+1 == 0 {
+		gb.f |= MaskZeroFlag
+	} else {
+		gb.f &= ^MaskZeroFlag
+	}
+
+	gb.f &= ^MaskSubtractionFlag
+
+	if oldVal&0xF+(0x1&0xF) == 0x10 {
+		gb.f |= MaskHalfCarryFlag
+	} else {
+		gb.f &= ^MaskHalfCarryFlag
+	}
+
+}
+
+func dec(gb *GameBoy, prefix uint8, opcode OpCode, displacement uint8, immediate uint16) {
+	gb.debugLnF("operation DEC")
+
+	z := opcode.GetZ()
+	p, _ := opcode.GetPQ()
+	var old16 uint16
+	var old8 uint8
+	is8 := false
+
+	if z == 3 {
+		old16 = tableRPRead(gb, p)
+		tableRPWrite(gb, p, old16-1)
+	} else if z == 5 {
+		is8 = true
+		old8 = tableRRead(gb, p)
+		tableRWrite(gb, p, old8-1)
+	}
+
+	gb.f |= MaskSubtractionFlag
+
+	if is8 {
+		if old8-1 == 0 {
+			gb.f |= MaskZeroFlag
+		} else {
+			gb.f &= ^MaskZeroFlag
+		}
+
+		if old8&0xF-(0x1&0xF) == 0x10 {
+			gb.f |= MaskHalfCarryFlag
+		} else {
+			gb.f &= ^MaskHalfCarryFlag
+		}
+	} else {
+		if old16-1 == 0 {
+			gb.f |= MaskZeroFlag
+		} else {
+			gb.f &= ^MaskZeroFlag
+		}
+
+		if old16&0xFFF-(0x1&0xFFF) == 0x1000 {
+			gb.f |= MaskHalfCarryFlag
+		} else {
+			gb.f &= ^MaskHalfCarryFlag
+		}
 	}
 }
 
@@ -92,29 +156,12 @@ func xor(gb *GameBoy, prefix uint8, opcode OpCode, displacement uint8, immediate
 
 	gb.a ^= value
 
-	// set sign flag
-	if gb.a&0b1000_0000 != 0 {
-		gb.f |= MaskSignFlag
-	} else {
-		gb.f &= ^MaskSignFlag
-	}
-
 	// set zero flag
 	if gb.a == 0 {
 		gb.f |= MaskZeroFlag
 	} else {
 		gb.f &= ^MaskZeroFlag
 	}
-
-	// set parity flag
-	if bits.OnesCount8(gb.a)%2 == 0 {
-		gb.f |= MaskParityOverflowFlag
-	} else {
-		gb.f &= ^MaskParityOverflowFlag
-	}
-
-	// clear carry, high carry, and subtraction flags
-	gb.f &= ^(MaskHighCarryFlag | MaskSubtractionFlag | MaskCarryFlag)
 }
 
 func bit(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uint16) {
@@ -131,8 +178,8 @@ func bit(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate ui
 		gb.f &= ^MaskZeroFlag
 	}
 
-	gb.f &= ^MaskSubtractionFlag // clear
-	gb.f |= MaskHighCarryFlag    // set
+	gb.f &= ^MaskSubtractionFlag
+	gb.f |= MaskHalfCarryFlag
 }
 
 func jr(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uint16) {
@@ -174,6 +221,16 @@ func push(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate u
 	gb.PushStack(rp2)
 }
 
+func pop(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uint16) {
+	gb.debugLnF("operation POP")
+
+	p, _ := opcode.GetPQ()
+
+	st := gb.PopStack()
+
+	tableRP2Write(gb, p, st)
+}
+
 func call(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uint16) {
 	gb.debugLnF("operation CALL")
 
@@ -194,6 +251,21 @@ func rl(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uin
 	r := tableRRead(gb, z)
 	bit := r&1<<7 != 0
 	tableRWrite(gb, z, r<<1)
+
+	if bit {
+		// set carry
+		gb.f |= MaskCarryFlag
+	} else {
+		// clear carry
+		gb.f &= ^MaskCarryFlag
+	}
+}
+
+func rla(gb *GameBoy, ext uint8, opcode OpCode, displacement uint8, immediate uint16) {
+	gb.debugLnF("operation RLA")
+
+	bit := (gb.a & 0x80) != 0
+	gb.a <<= 1
 
 	if bit {
 		// set carry
@@ -259,11 +331,28 @@ func tableRPWrite(gb *GameBoy, p uint8, value uint16) {
 	case 1:
 		gb.setDE(value)
 	case 2:
-		// LD HL, $9FFF
+		// LD HL, nn
 		gb.setHL(value)
 	case 3:
-		// LD SP, $EFFF
+		// LD SP, nn
 		gb.sp = value
+	}
+}
+
+func tableRPRead(gb *GameBoy, p uint8) (value uint16) {
+	switch p {
+	case 0:
+		return gb.readBC()
+	case 1:
+		return gb.readDE()
+	case 2:
+		// LD HL, nn
+		return gb.readHL()
+	case 3:
+		// LD SP, nn
+		return gb.sp
+	default:
+		panic(errors.New(fmt.Sprintf("unexpected Table RP lookup value: %d", p)))
 	}
 }
 

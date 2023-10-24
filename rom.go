@@ -33,10 +33,10 @@ func (gb *GameBoy) RunFrame() {
 	// this would probably continuously
 	// run instructions until a VBlank interrupt
 
-	for i := 0; i <= 24599; i++ {
+	for i := 0; i <= 24603; i++ {
 		gb.debugLnF("instruction #%d", i)
 
-		if gb.pc == 0x009B {
+		if gb.pc == 0x00A0 {
 			gb.debugLnF("breakpoint")
 		}
 

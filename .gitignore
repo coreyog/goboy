@@ -40,3 +40,4 @@ goboy
 *.rar
 *.7z
 *.bin
+__debug_bin*

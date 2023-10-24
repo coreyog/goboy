@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/coreyog/goboy"
+
+	"golang.design/x/clipboard"
 )
 
 func main() {
@@ -20,6 +22,11 @@ func main() {
 		<-c
 		os.Exit(0)
 	}()
+
+	err := clipboard.Init()
+	if err != nil {
+		panic(err)
+	}
 
 	// easy input
 	reader := bufio.NewReader(os.Stdin)
@@ -68,10 +75,15 @@ func main() {
 		q := y & 1
 
 		// output
-		fmt.Printf("%02b_%03b_%03b\n", x, y, z)
-		fmt.Printf(" %d   %d   %d\n", x, y, z)
-		fmt.Printf("   %d %d\n", p, q)
+		underscores := fmt.Sprintf("%02b_%03b_%03b", x, y, z)
+		fmt.Printf("0x%02X\n", b)
+		fmt.Printf("0b%s\n", underscores)
+		fmt.Printf("   %d   %d   %d\n", x, y, z)
+		fmt.Printf("     %d %d\n", p, q)
 		fmt.Printf("un: %s (%t)\n", opnames[unprefixed[b].Code], unprefixed[b].Operation != nil)
 		fmt.Printf("cb: %s (%t)\n\n", opnames[cb[b].Code], cb[b].Operation != nil)
+
+		// update clipboard, useful for my "flow"
+		clipboard.Write(clipboard.FmtText, []byte(underscores))
 	}
 }
