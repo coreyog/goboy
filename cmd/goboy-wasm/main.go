@@ -1,3 +1,6 @@
+//go:build js && wasm
+// +build js,wasm
+
 package main
 
 import (
@@ -25,13 +28,14 @@ var audioCtx js.Value
 var audioCtxDest js.Value
 var oscillator js.Value
 var gain js.Value
-var curGain float32
+var curGain float32 = 0.05
 var fps js.Value
 var img *image.RGBA
 var progress float64
 var prevTS float64
 var killSwitch chan struct{}
 var closing bool
+var updateFPS bool = false
 
 var gb *goboy.GameBoy
 
@@ -64,7 +68,6 @@ func main() {
 	gain = audioCtx.Call("createGain")
 	oscillator.Call("connect", gain)
 	gain.Call("connect", audioCtxDest)
-	curGain = 0.05
 	gain.Get("gain").Set("value", curGain)
 	// oscillator.Call("start")
 
@@ -95,24 +98,16 @@ func main() {
 }
 
 func onFrame(this js.Value, args []js.Value) interface{} {
-	// guarenteed requestAnimationFrame or kill the app
-	defer func() {
-		if !closing {
-			requestAnimationFrame.Invoke(jsOnFrame)
-		} else {
-			killSwitch <- struct{}{}
-		}
-	}()
-
 	// determine timestamp and delta time
 	ts := args[0].Float()      // in milliseconds since start
 	dt := (ts - prevTS) / 1000 // in seconds since last frame
 	prevTS = ts
 
 	// update FPS in DOM
-	text := fmt.Sprintf("fps: %0.0f\n", 1/dt)
-	fps.Set("innerHTML", text)
-	// fmt.Println(text)
+	if updateFPS {
+		text := fmt.Sprintf("fps: %0.0f\n", 1/dt)
+		fps.Set("innerHTML", text)
+	}
 
 	// inset colored rectangle
 	draw.Draw(img, image.Rect(10, 10, width-10, height-10), image.NewUniform(Keypoints.GetInterpolatedColorFor(progress)), image.Point{}, draw.Src)
@@ -126,28 +121,20 @@ func onFrame(this js.Value, args []js.Value) interface{} {
 
 	// playAudio(ts, dt)
 
+	if !closing {
+		requestAnimationFrame.Invoke(jsOnFrame)
+	} else {
+		killSwitch <- struct{}{}
+	}
+
 	return js.Null()
 }
 
 func drawImage(ctx js.Value, img *image.RGBA) {
-	data := make([]byte, width*height*4)
-
-	// get pixel data
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			index := (y*width + x) * 4
-			pixel := img.RGBAAt(x, y)
-			data[index] = pixel.R
-			data[index+1] = pixel.G
-			data[index+2] = pixel.B
-			data[index+3] = pixel.A
-		}
-	}
-
 	// copy to JS
 	Uint8Array := js.Global().Get("Uint8Array")
-	jsData := Uint8Array.New(len(data))
-	js.CopyBytesToJS(jsData, data)
+	jsData := Uint8Array.New(len(img.Pix))
+	js.CopyBytesToJS(jsData, img.Pix)
 
 	// clamp the data
 	Uint8ClampedArray := js.Global().Get("Uint8ClampedArray")
@@ -194,6 +181,7 @@ func loadROM(this js.Value, args []js.Value) interface{} {
 
 	gb.LoadROM(data)
 
+	// TODO: run multiple frames
 	gb.RunFrame()
 
 	return js.Null()
