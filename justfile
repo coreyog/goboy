@@ -7,7 +7,7 @@ build:
   @go generate ./...
 
 run:
-  @http-server cmd/goboy-wasm/dist -o -c-1
+  @http-server cmd/goboy-wasm/dist -o -c-1 --cors
 
 tidy:
   @go mod tidy
