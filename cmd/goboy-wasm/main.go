@@ -4,6 +4,7 @@
 package main
 
 import (
+	"container/ring"
 	"fmt"
 	"image"
 	"image/draw"
@@ -20,48 +21,76 @@ const (
 	height = 144
 )
 
-var ctx js.Value
-var requestAnimationFrame js.Value
-var jsOnFrame js.Func
-var console js.Value
-var audioCtx js.Value
-var audioCtxDest js.Value
-var oscillator js.Value
-var gain js.Value
-var curGain float32 = 0.05
-var fps js.Value
-var img *image.RGBA
-var progress float64
-var prevTS float64
-var killSwitch chan struct{}
-var closing bool
-var updateFPS bool = false
+var ( // constant-like variables
+	// JS Constants
+	window = js.Global()
+	JSNULL = js.Null()
 
-var gb *goboy.GameBoy
+	// JS Types
+	Uint8ClampedArray = window.Get("Uint8ClampedArray")
+	ImageData         = window.Get("ImageData")
+	AudioContext      = window.Get("AudioContext")
+
+	// JS Functions
+	requestAnimationFrame = window.Get("requestAnimationFrame")
+
+	// JS Global Objects
+	document = window.Get("document")
+	console  = window.Get("console")
+)
+
+var (
+	img            *image.RGBA // THE frame buffer
+	ctx            js.Value    // CanvasRenderingContext2D
+	jsOnFrame      js.Func
+	audioCtx       js.Value // AudioContext
+	audioCtxDest   js.Value // AudioDestinationNode
+	oscillator     js.Value // OscillatorNode
+	gain           js.Value // GainNode
+	curGain        float32  = 0.05
+	pixelData      js.Value // Uint8ClampedArray
+	fps            js.Value // HTMLSpanElement
+	progress       float64
+	killSwitch     chan struct{} = make(chan struct{}, 1)
+	closing        bool
+	prevTS         float64
+	calcFPS        bool = true
+	fpsSum         float64
+	fpsHistory     *ring.Ring      // history of the last [fpsHistorySize] frame times in seconds
+	fpsHistorySize int        = 10 // size of the history ring
+	frameCount     uint64
+
+	gb *goboy.GameBoy = &goboy.GameBoy{}
+)
+
+func init() {
+	fpsHistory = ring.New(fpsHistorySize)
+	for range fpsHistorySize {
+		fpsHistory.Value = float64(0.0)
+		fpsHistory = fpsHistory.Next()
+	}
+
+	jsOnFrame = js.FuncOf(onFrame)
+	window.Set("stopWASM", js.FuncOf(stopWASM))
+	window.Set("loadROM", js.FuncOf(loadROM))
+	window.Set("_toggleFPS", js.FuncOf(toggleFPS))
+}
 
 func main() {
-	gb = &goboy.GameBoy{}
-
 	// prep state
-	killSwitch = make(chan struct{})
-	document := js.Global().Get("document")
 	canvas := document.Call("getElementById", "target")
 
 	fn := canvas.Get("getContext")
 	if !fn.Truthy() {
+		console.Call("log", "getContext not found, closing")
 		return
 	}
 
-	// setup video stuff
 	fps = document.Call("getElementById", "fps")
-	console = js.Global().Get("console")
 	ctx = canvas.Call("getContext", "2d")
-	requestAnimationFrame = js.Global().Get("requestAnimationFrame")
-	jsOnFrame = js.FuncOf(onFrame)
 
 	// setup audio stuff
-	audioCtxFunc := js.Global().Get("AudioContext")
-	audioCtx = audioCtxFunc.New()
+	audioCtx = AudioContext.New()
 	audioCtxDest = audioCtx.Get("destination")
 	oscillator = audioCtx.Call("createOscillator")
 	oscillator.Set("type", "square")
@@ -73,17 +102,14 @@ func main() {
 
 	// create image
 	img = image.NewRGBA(image.Rect(0, 0, width, height))
+	pixelData = Uint8ClampedArray.New(len(img.Pix))
 
 	// 1px solid black border
 	draw.Draw(img, img.Bounds(), image.NewUniform(colornames.Black), image.Point{}, draw.Src)
 	draw.Draw(img, image.Rect(1, 1, width-1, height-1), image.NewUniform(colornames.White), image.Point{}, draw.Src)
 
-	// draw frame
-	onFrame(js.Null(), []js.Value{js.ValueOf(0)})
-
-	// register kill switch
-	js.Global().Set("stopWASM", js.FuncOf(stopWASM))
-	js.Global().Set("loadROM", js.FuncOf(loadROM))
+	// draw frame, kick off RAF loop
+	onFrame(JSNULL, []js.Value{js.ValueOf(0)})
 
 	// wait for call to stopWASM
 	<-killSwitch
@@ -99,14 +125,20 @@ func main() {
 
 func onFrame(this js.Value, args []js.Value) interface{} {
 	// determine timestamp and delta time
-	ts := args[0].Float()      // in milliseconds since start
-	dt := (ts - prevTS) / 1000 // in seconds since last frame
+	ts := args[0].Float()      // time since start in milliseconds
+	dt := (ts - prevTS) / 1000 // time since last frame in seconds
+	frameCount++
 	prevTS = ts
 
 	// update FPS in DOM
-	if updateFPS {
-		text := fmt.Sprintf("fps: %0.0f\n", 1/dt)
-		fps.Set("innerHTML", text)
+	updateFPS(dt)
+
+	if calcFPS {
+		if frameCount%30 == 0 {
+			calc := fpsSum / float64(fpsHistorySize)
+			text := fmt.Sprintf("fps: %0.0f", 1/calc)
+			fps.Set("innerHTML", text)
+		}
 	}
 
 	// inset colored rectangle
@@ -127,22 +159,15 @@ func onFrame(this js.Value, args []js.Value) interface{} {
 		killSwitch <- struct{}{}
 	}
 
-	return js.Null()
+	return JSNULL
 }
 
 func drawImage(ctx js.Value, img *image.RGBA) {
 	// copy to JS
-	Uint8Array := js.Global().Get("Uint8Array")
-	jsData := Uint8Array.New(len(img.Pix))
-	js.CopyBytesToJS(jsData, img.Pix)
-
-	// clamp the data
-	Uint8ClampedArray := js.Global().Get("Uint8ClampedArray")
-	jsClampedData := Uint8ClampedArray.New(jsData) // view, don't use "Uint8ClampedArray.from(...)"
+	js.CopyBytesToJS(pixelData, img.Pix)
 
 	// make it Image Data
-	ImageData := js.Global().Get("ImageData")
-	imgData := ImageData.New(jsClampedData, width)
+	imgData := ImageData.New(pixelData, width)
 
 	// put it on the canvas
 	ctx.Call("putImageData", imgData, 0, 0)
@@ -163,7 +188,7 @@ func loadROM(this js.Value, args []js.Value) interface{} {
 	fmt.Printf("WASM - loading ROM (%d)\n", len(args))
 	if len(args) != 1 {
 		fmt.Printf("invalid number of args, expected 1, got %d", len(args))
-		return js.Null()
+		return JSNULL
 	}
 
 	array := args[0]
@@ -171,7 +196,7 @@ func loadROM(this js.Value, args []js.Value) interface{} {
 
 	if !strings.EqualFold(conName, "uint8array") {
 		fmt.Printf("invalid argument, expected: Uint8Array, actual: %s\n", conName)
-		return js.Null()
+		return JSNULL
 	}
 
 	size := int(array.Get("byteLength").Float())
@@ -184,10 +209,29 @@ func loadROM(this js.Value, args []js.Value) interface{} {
 	// TODO: run multiple frames
 	gb.RunFrame()
 
-	return js.Null()
+	return JSNULL
 }
 
 func stopWASM(this js.Value, args []js.Value) interface{} {
 	closing = true
-	return js.Null()
+	return JSNULL
+}
+
+func updateFPS(sinceLastFrame float64) {
+	fpsSum += sinceLastFrame - fpsHistory.Value.(float64)
+
+	fpsHistory.Value = sinceLastFrame
+	fpsHistory = fpsHistory.Next()
+}
+
+func toggleFPS(_ js.Value, _ []js.Value) interface{} {
+	calcFPS = !calcFPS
+
+	if calcFPS {
+		fps.Set("innerHTML", "fps: -")
+	} else {
+		fps.Set("innerHTML", "---")
+	}
+
+	return JSNULL
 }

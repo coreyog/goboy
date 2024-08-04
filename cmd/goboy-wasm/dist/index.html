@@ -8,6 +8,7 @@ license that can be found in the LICENSE file.
 
 <head>
 	<meta charset="utf-8">
+	<link href="data:image/x-icon;base64,AAABAAEAEBAQAAAAAAAoAQAAFgAAACgAAAAQAAAAIAAAAAEABAAAAAAAgAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAoaGhAEdHRwCcnJwAYL2LAJ6engBhY2IAsLCwAKurqwCWlpYAAAD/AI+PjwCRkZEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEYiIgAAAAAARCwlYAAAAAIEwMDWAAAAAgzM1NYAAAACBA1isgAAAABAAVVpQAAAAEQVYVVAAAAARUiIlUAAAABVkREZQAAAAhWRERoAAAACFZERGgAAAAAiCIihwAAAAAAAAAAAAAAAAAAAAAAD//wAA8B8AAOAPAADgBwAA4AMAAOADAADgAwAA4AMAAOADAADgAwAA4AMAAOADAADgAwAA8AMAAPgHAAD//wAA" rel="icon" type="image/x-icon">
 	<link rel="stylesheet" href="style.css">
 	<title>Go wasm</title>
 </head>
@@ -85,15 +86,19 @@ license that can be found in the LICENSE file.
 			};
 			reader.readAsArrayBuffer(file);
 		}
+
+		function toggleFPS() {
+			if (window._toggleFPS) {
+				window._toggleFPS();
+			}
+		}
 	</script>
 
 	<button onClick="runWASM();" id="wasmButton" disabled>Run WASM</button>
 	<button onClick="stop();" id="stopButton" disabled>Stop</button>
 	<button onClick="playSoundBuffer();">Play 1s Sound (JS)</button>
 	<input type="file" id="file-input" />
-	<span>
-		<span id="fps">---</span>
-	</span>
+	<span id="fps" onClick="toggleFPS()">fps: -</span>
 	<br/>
 	<br/>
 	<canvas id="target" width="160px" height="144px"></canvas>
