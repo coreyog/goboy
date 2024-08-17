@@ -7,6 +7,7 @@ build:
   @go generate ./...
 
 run:
+  @# npm i -g http-server
   @http-server cmd/goboy-wasm/dist -o -c-1 --cors
 
 tidy:
